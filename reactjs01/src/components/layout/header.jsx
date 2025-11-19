@@ -4,6 +4,7 @@ import {
   HomeOutlined,
   SettingOutlined,
   LogoutOutlined,
+  ShoppingOutlined,
 } from '@ant-design/icons';
 import { Menu } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
@@ -22,6 +23,11 @@ const Header = () => {
     },
     ...(auth?.isAuthenticated
       ? [
+          {
+            label: <Link to="/products">Product</Link>,
+            key: 'products',
+            icon: <ShoppingOutlined />,
+          },
           {
             label: <Link to="/user">Users</Link>,
             key: 'user',
@@ -71,7 +77,21 @@ const Header = () => {
     setCurrent(e.key);
   };
 
-  return <Menu onClick={onClick} selectedKeys={[current]} mode="horizontal" items={items} />;
+  return (
+    <div style={{ width: '100%', backgroundColor: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+      <Menu 
+        onClick={onClick} 
+        selectedKeys={[current]} 
+        mode="horizontal" 
+        items={items}
+        style={{ 
+          width: '100%',
+          maxWidth: '100%',
+          lineHeight: '64px',
+        }}
+      />
+    </div>
+  );
 };
 
 export default Header;

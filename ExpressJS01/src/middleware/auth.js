@@ -14,6 +14,7 @@ const auth = (req, res, next) => {
         req.user = {
           email: decoded.email,
           name: decoded.name,
+          role: decoded.role,
           createdBy: 'hoidanit',
         };
         console.log('>>> check token: ', decoded);
@@ -31,4 +32,22 @@ const auth = (req, res, next) => {
   }
 };
 
-module.exports = auth;
+
+const authAdmin = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      message: 'Bạn chưa đăng nhập',
+    });
+  }
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({
+      message: 'Bạn không có quyền truy cập vào tính năng này',
+    });
+  }
+  next();
+};
+
+module.exports = {
+  auth,
+  authAdmin,
+};

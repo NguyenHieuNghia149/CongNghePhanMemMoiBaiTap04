@@ -8,10 +8,11 @@ const {getHomePage} = require('./controllers/homeController');
 const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 8080;
-
+var cookieParser = require('cookie-parser');
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
+app.use(cookieParser());
 configViewEngine(app);
 
 const webAPI = express.Router();

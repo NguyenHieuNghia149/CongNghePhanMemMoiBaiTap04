@@ -16,4 +16,35 @@ const forgotPasswordApi = (email, newPassword) => {
   return axios.post('/v1/api/forgot-password', { email, newPassword });
 };
 
-export { createUserApi, loginApi, getUserApi, forgotPasswordApi };
+// Product APIs
+const getAllProductsApi = (params = {}) => {
+  return axios.get('/v1/api/products', { params });
+};
+
+const getProductByIdApi = (id) => {
+  return axios.get(`/v1/api/products/${id}`);
+};
+
+const createProductApi = (productData) => {
+  return axios.post('/v1/api/products', productData);
+};
+
+const updateProductApi = (id, productData) => {
+  return axios.put(`/v1/api/products/${id}`, productData);
+};
+
+const deleteProductApi = (id) => {
+  return axios.delete(`/v1/api/products/${id}`);
+};
+
+export { 
+  createUserApi, 
+  loginApi, 
+  getUserApi, 
+  forgotPasswordApi,
+  getAllProductsApi,
+  getProductByIdApi,
+  createProductApi,
+  updateProductApi,
+  deleteProductApi,
+};

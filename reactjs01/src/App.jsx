@@ -18,6 +18,7 @@ function App() {
           user: {
             email: res.email,
             name: res.name,
+            role: res.role,
           },
         });
       }
@@ -28,7 +29,7 @@ function App() {
   }, [setAppLoading, setAuth]);
 
   return (
-    <div>
+    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {appLoading === true ? (
         <div
           style={{
@@ -36,6 +37,7 @@ function App() {
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
+            zIndex: 9999,
           }}
         >
           <Spin />
@@ -43,7 +45,9 @@ function App() {
       ) : (
         <>
           <Header />
-          <Outlet />
+          <div style={{ flex: 1, width: '100%' }}>
+            <Outlet />
+          </div>
         </>
       )}
     </div>

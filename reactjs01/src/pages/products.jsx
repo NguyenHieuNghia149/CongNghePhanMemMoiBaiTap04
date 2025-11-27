@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, useContext } from 'react';
 import {
   Card,
   Row,
@@ -16,21 +16,23 @@ import {
   Image,
   Popconfirm,
   notification,
-  Divider,
+  Select,
+  Slider,
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   ShoppingOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import {
   getAllProductsApi,
   createProductApi,
   updateProductApi,
   deleteProductApi,
+  getProductFiltersApi,
 } from '../utils/api';
-import { useContext } from 'react';
 import { AuthContext } from '../components/context/auth.context';
 
 const { Title, Text, Paragraph } = Typography;
@@ -42,58 +44,102 @@ const ProductsPage = () => {
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  const [categoryFilter, setCategoryFilter] = useState('');
+  const [brandFilter, setBrandFilter] = useState('');
+
+  const [allCategories, setAllCategories] = useState([]);
+  const [allBrands, setAllBrands] = useState([]);
+
+  const [priceRange, setPriceRange] = useState([0, 100000000]);
+  const [priceBounds] = useState([0, 100000000]);
+
   const [form] = Form.useForm();
   const observerTarget = useRef(null);
+  const debounceTimer = useRef(null);
+
   const limit = 10;
 
+  // ------------------------------------------------
   // Lấy danh sách sản phẩm
-  const fetchProducts = useCallback(async (page = 1, reset = false) => {
-    if (loading) return;
-    
-    setLoading(true);
-    try {
-      const params = {
-        page,
-        limit,
-      };
-      
-      const res = await getAllProductsApi(params);
-      
-      if (res && res.EC === 0) {
-        const newProducts = res.data || [];
-        
-        if (reset) {
-          setProducts(newProducts);
+  // ------------------------------------------------
+  const fetchProducts = useCallback(
+    async (page = 1, reset = false) => {
+      if (loading) return;
+
+      setLoading(true);
+      try {
+        const params = { page, limit };
+
+        if (debouncedSearchTerm.trim()) params.search = debouncedSearchTerm.trim();
+        if (categoryFilter.trim()) params.category = categoryFilter.trim();
+        if (brandFilter.trim()) params.brand = brandFilter.trim();
+
+        const [minP, maxP] = priceRange;
+        params.minPrice = Number(minP);
+        params.maxPrice = Number(maxP);
+
+        const res = await getAllProductsApi(params);
+
+        if (res && res.EC === 0) {
+          const newProducts = res.data || [];
+
+          reset
+            ? setProducts(newProducts)
+            : setProducts((prev) => [...prev, ...newProducts]);
+
+          setHasMore(newProducts.length === limit && page < res.pagination.totalPages);
+          setCurrentPage(page);
         } else {
-          setProducts((prev) => [...prev, ...newProducts]);
+          notification.error({
+            message: 'Lỗi',
+            description: res?.EM || 'Không thể tải danh sách sản phẩm',
+          });
         }
-        
-        setHasMore(newProducts.length === limit && page < res.pagination.totalPages);
-        setCurrentPage(page);
-      } else {
+      } catch (error) {
+        console.error('Error fetching products:', error);
         notification.error({
           message: 'Lỗi',
-          description: res?.EM || 'Không thể tải danh sách sản phẩm',
+          description: 'Có lỗi xảy ra khi tải danh sách sản phẩm',
         });
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      notification.error({
-        message: 'Lỗi',
-        description: 'Có lỗi xảy ra khi tải danh sách sản phẩm',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [loading]);
+    },
+    [loading, debouncedSearchTerm, categoryFilter, brandFilter, priceRange]
+  );
 
+  // ------------------------------------------------
+  // Debounce search
+  // ------------------------------------------------
+  useEffect(() => {
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+    debounceTimer.current = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, [searchTerm]);
+
+  // ------------------------------------------------
+  // Fetch sản phẩm khi filter thay đổi
+  // ------------------------------------------------
   useEffect(() => {
     fetchProducts(1, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [debouncedSearchTerm, categoryFilter, brandFilter, priceRange]);
 
+  // ------------------------------------------------
+  // Infinite Scroll
+  // ------------------------------------------------
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -104,183 +150,239 @@ const ProductsPage = () => {
       { threshold: 0.1 }
     );
 
-    const currentTarget = observerTarget.current;
-    if (currentTarget) {
-      observer.observe(currentTarget);
-    }
+    const current = observerTarget.current;
+    if (current) observer.observe(current);
 
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
-      }
-    };
+    return () => current && observer.unobserve(current);
   }, [hasMore, loading, currentPage, fetchProducts]);
 
-  // Mở modal tạo mới
+  // ------------------------------------------------
+  // Fetch Filters (category + brand)
+  // ------------------------------------------------
+  const fetchFilters = async () => {
+    try {
+      const res = await getProductFiltersApi();
+      if (res?.EC === 0) {
+        const cats = (res.data.categories || []).map(c => ({
+          label: c,
+          value: c,
+        }));
+
+        const brs = (res.data.brands || []).map(b => ({
+          label: b,
+          value: b,
+        }));
+
+
+
+        setAllCategories(cats);
+        setAllBrands(brs);
+      }
+    } catch (error) {
+      console.error('Error fetching filters:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchFilters();
+  }, []);
+
+  const categoryOptions = useMemo(
+    () => [{ label: 'Tất cả', value: '' }, ...allCategories],
+    [allCategories]
+  );
+
+  const brandOptions = useMemo(
+    () => [{ label: 'Tất cả', value: '' }, ...allBrands],
+    [allBrands]
+  );
+
+  // ------------------------------------------------
+  // Modal Create / Edit
+  // ------------------------------------------------
   const handleCreate = () => {
     setEditingProduct(null);
     form.resetFields();
     setIsModalOpen(true);
   };
 
-  // Mở modal chỉnh sửa
   const handleEdit = (product) => {
     setEditingProduct(product);
     form.setFieldsValue(product);
     setIsModalOpen(true);
   };
 
-  // Xóa sản phẩm
   const handleDelete = async (id) => {
     try {
       const res = await deleteProductApi(id);
-      if (res && res.EC === 0) {
-        notification.success({
-          message: 'Thành công',
-          description: 'Xóa sản phẩm thành công',
-        });
-        // Reload products
+      if (res?.EC === 0) {
+        notification.success({ message: 'Thành công', description: 'Xóa sản phẩm thành công' });
         fetchProducts(1, true);
-      } else {
-        notification.error({
-          message: 'Lỗi',
-          description: res?.EM || 'Không thể xóa sản phẩm',
-        });
+        fetchFilters();
       }
-    } catch (error) {
-      console.error('Error deleting product:', error);
-      notification.error({
-        message: 'Lỗi',
-        description: 'Có lỗi xảy ra khi xóa sản phẩm',
-      });
+    } catch {
+      notification.error({ message: 'Lỗi', description: 'Có lỗi khi xóa sản phẩm' });
     }
   };
 
-  // Submit form
+  // ------------------------------------------------
+  // Submit create/update
+  // ------------------------------------------------
   const handleSubmit = async (values) => {
     try {
-      // Validate và format dữ liệu trước khi gửi
-      const productData = {
-        name: values.name?.trim(),
+      const data = {
+        name: values.name.trim(),
         price: Number(values.price),
-        description: values.description?.trim(),
-        image: values.image?.trim(),
-        category: values.category?.trim(),
-        brand: values.brand?.trim(),
+        description: values.description.trim(),
+        image: values.image.trim(),
+        category: values.category.trim(),
+        brand: values.brand.trim(),
       };
 
-      // Validate lại trên client side
-      if (!productData.name || productData.name.length < 3 || productData.name.length > 30) {
-        notification.error({
-          message: 'Lỗi validation',
-          description: 'Tên sản phẩm phải từ 3 đến 30 ký tự!',
-        });
-        return;
-      }
+      const res = editingProduct
+        ? await updateProductApi(editingProduct._id, data)
+        : await createProductApi(data);
 
-      if (!productData.price || productData.price < 0) {
-        notification.error({
-          message: 'Lỗi validation',
-          description: 'Giá sản phẩm phải lớn hơn hoặc bằng 0!',
-        });
-        return;
-      }
-
-      if (!productData.description || productData.description.length < 3 || productData.description.length > 100) {
-        notification.error({
-          message: 'Lỗi validation',
-          description: 'Mô tả phải từ 3 đến 100 ký tự!',
-        });
-        return;
-      }
-
-      if (!productData.image || productData.image.length < 3 || productData.image.length > 100) {
-        notification.error({
-          message: 'Lỗi validation',
-          description: 'URL hình ảnh phải từ 3 đến 100 ký tự!',
-        });
-        return;
-      }
-
-      if (!productData.category || productData.category.length < 3 || productData.category.length > 100) {
-        notification.error({
-          message: 'Lỗi validation',
-          description: 'Danh mục phải từ 3 đến 100 ký tự!',
-        });
-        return;
-      }
-
-      if (!productData.brand || productData.brand.length < 3 || productData.brand.length > 100) {
-        notification.error({
-          message: 'Lỗi validation',
-          description: 'Thương hiệu phải từ 3 đến 100 ký tự!',
-        });
-        return;
-      }
-
-      let res;
-      if (editingProduct) {
-        res = await updateProductApi(editingProduct._id, productData);
-      } else {
-        res = await createProductApi(productData);
-      }
-
-      if (res && res.EC === 0) {
+      if (res?.EC === 0) {
         notification.success({
           message: 'Thành công',
-          description: editingProduct ? 'Cập nhật sản phẩm thành công' : 'Tạo sản phẩm thành công',
+          description: editingProduct ? 'Cập nhật thành công' : 'Tạo sản phẩm thành công',
         });
         setIsModalOpen(false);
         form.resetFields();
-        // Reload products
         fetchProducts(1, true);
-      } else {
-        notification.error({
-          message: 'Lỗi',
-          description: res?.EM || 'Có lỗi xảy ra',
-        });
       }
-    } catch (error) {
-      console.error('Error submitting product:', error);
-      notification.error({
-        message: 'Lỗi',
-        description: 'Có lỗi xảy ra khi lưu sản phẩm',
-      });
+    } catch {
+      notification.error({ message: 'Lỗi', description: 'Có lỗi khi lưu sản phẩm' });
     }
   };
 
-  const isAdmin = auth?.user?.role === 'admin';
-  //const isAuthenticated = auth?.isAuthenticated;
+  // ------------------------------------------------
+  // Handle Filters
+  // ------------------------------------------------
+  const handleSearch = (value) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+    setHasMore(true);
+  };
 
+  const handleFilterChange = (field, value) => {
+    if (field === 'category') setCategoryFilter(value || '');
+    if (field === 'brand') setBrandFilter(value || '');
+    if (field === 'priceRange') setPriceRange(value);
+
+    setCurrentPage(1);
+    setHasMore(true);
+  };
+
+  const isAdmin = auth?.user?.role === 'admin';
+
+  // ------------------------------------------------
+  // RENDER UI
+  // ------------------------------------------------
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title level={2}>
-            <ShoppingOutlined /> Danh sách Sản phẩm
-          </Title>
-          {isAdmin && (
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleCreate}
-              size="large"
-            >
-              Thêm sản phẩm
-            </Button>
-          )}
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+        <Title level={2}>
+          <ShoppingOutlined /> Danh sách Sản phẩm
+        </Title>
 
-        <Divider />
+        {isAdmin && (
+          <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleCreate}>
+            Thêm sản phẩm
+          </Button>
+        )}
+      </div>
 
-        {/* Products List */}
-        {products.length === 0 && !loading ? (
-          <Empty description="Không có sản phẩm nào" />
-        ) : (
-          <Row gutter={[16, 16]}>
-            {products.map((product) => (
-                  <Col xs={24} sm={12} md={8} lg={6} key={product._id}>
+      <Row gutter={16}>
+        {/* FILTER SIDEBAR */}
+        <Col xs={24} md={7} lg={6}>
+          <Card size="small" title="Bộ lọc" bodyStyle={{ padding: 16 }}>
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              
+              {/* Search */}
+              <Input
+                placeholder="Tìm kiếm..."
+                prefix={<SearchOutlined />}
+                allowClear
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
+
+              <Form layout="vertical">
+                {/* Category */}
+                <Form.Item label="Danh mục">
+                  <Select
+                    allowClear
+                    placeholder="Chọn danh mục"
+                    options={categoryOptions}
+                    value={categoryFilter || undefined}
+                    onChange={(v) => handleFilterChange('category', v)}
+                  />
+                </Form.Item>
+
+                {/* Brand */}
+                <Form.Item label="Thương hiệu">
+                  <Select
+                    allowClear
+                    showSearch
+                    placeholder="Chọn thương hiệu"
+                    options={brandOptions}
+                    value={brandFilter || undefined}
+                    onChange={(v) => handleFilterChange('brand', v)}
+                    filterOption={(input, option) =>
+                      option?.label.toLowerCase().includes(input.toLowerCase())
+                    }
+                  />
+                </Form.Item>
+
+                {/* Price Range */}
+                <Form.Item
+                  label={
+                    <Space>
+                      Khoảng giá (VND)
+                      <Text type="secondary">
+                        {new Intl.NumberFormat('vi-VN').format(priceRange[0])} -{' '}
+                        {new Intl.NumberFormat('vi-VN').format(priceRange[1])}
+                      </Text>
+                    </Space>
+                  }
+                >
+                  <Slider
+                    range
+                    min={priceBounds[0]}
+                    max={priceBounds[1]}
+                    value={priceRange}
+                    onChange={(v) => handleFilterChange('priceRange', v)}
+                  />
+                </Form.Item>
+              </Form>
+
+              <Button
+                onClick={() => {
+                  setSearchTerm('');
+                  setDebouncedSearchTerm('');
+                  setCategoryFilter('');
+                  setBrandFilter('');
+                  setPriceRange(priceBounds);
+                  fetchProducts(1, true);
+                }}
+              >
+                Xóa bộ lọc
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+
+        {/* PRODUCT LIST */}
+        <Col xs={24} md={17} lg={18}>
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            {products.length === 0 && !loading ? (
+              <Empty description="Không có sản phẩm" />
+            ) : (
+              <Row gutter={[16, 16]}>
+                {products.map((product) => (
+                  <Col xs={24} sm={12} md={12} lg={8} key={product._id}>
                     <Card
                       hoverable
                       cover={
@@ -289,33 +391,30 @@ const ProductsPage = () => {
                             src={product.image}
                             alt={product.name}
                             height={200}
-                            style={{ objectFit: 'cover' }}
                             preview={false}
+                            style={{ objectFit: 'cover' }}
                           />
                         ) : (
                           <div
                             style={{
                               height: 200,
                               display: 'flex',
-                              alignItems: 'center',
                               justifyContent: 'center',
-                              background: '#f0f0f0',
+                              alignItems: 'center',
+                              background: '#eee',
                             }}
                           >
-                            <ShoppingOutlined style={{ fontSize: 48, color: '#ccc' }} />
+                            <ShoppingOutlined style={{ fontSize: 48, color: '#bbb' }} />
                           </div>
                         )
                       }
                       actions={
                         isAdmin
                           ? [
-                              <EditOutlined
-                                key="edit"
-                                onClick={() => handleEdit(product)}
-                              />,
+                              <EditOutlined key="edit" onClick={() => handleEdit(product)} />,
                               <Popconfirm
                                 title="Xóa sản phẩm"
-                                description="Bạn có chắc chắn muốn xóa sản phẩm này?"
+                                description="Bạn có chắc muốn xóa?"
                                 onConfirm={() => handleDelete(product._id)}
                                 okText="Xóa"
                                 cancelText="Hủy"
@@ -329,45 +428,40 @@ const ProductsPage = () => {
                       <Card.Meta
                         title={product.name}
                         description={
-                          <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                            <Paragraph
-                              ellipsis={{ rows: 2, expandable: false }}
-                              style={{ marginBottom: 0, minHeight: '40px' }}
-                            >
+                          <Space direction="vertical" style={{ width: '100%' }}>
+                            <Paragraph ellipsis={{ rows: 2 }}>
                               {product.description}
                             </Paragraph>
-                            <div>
-                              <Text strong style={{ fontSize: '18px', color: '#ff4d4f' }}>
-                                {new Intl.NumberFormat('vi-VN', {
-                                  style: 'currency',
-                                  currency: 'VND',
-                                }).format(product.price)}
-                              </Text>
-                            </div>
-                            <div>
-                              <Tag color="purple">{product.brand}</Tag>
-                            </div>
+
+                            <Text strong style={{ fontSize: 18, color: '#ff4d4f' }}>
+                              {new Intl.NumberFormat('vi-VN', {
+                                style: 'currency',
+                                currency: 'VND',
+                              }).format(product.price)}
+                            </Text>
+
+                            <Tag color="purple">{product.brand}</Tag>
                           </Space>
                         }
                       />
                     </Card>
                   </Col>
                 ))}
-          </Row>
-        )}
+              </Row>
+            )}
 
-        {/* Loading indicator for lazy loading */}
-        {loading && (
-          <div style={{ textAlign: 'center', padding: '20px' }}>
-            <Spin size="large" />
-          </div>
-        )}
+            {loading && (
+              <div style={{ textAlign: 'center', padding: 20 }}>
+                <Spin size="large" />
+              </div>
+            )}
 
-        {/* Observer target for lazy loading */}
-        <div ref={observerTarget} style={{ height: '20px' }} />
-      </Space>
+            <div ref={observerTarget} style={{ height: 20 }} />
+          </Space>
+        </Col>
+      </Row>
 
-      {/* Create/Edit Modal */}
+      {/* MODAL FORM */}
       <Modal
         title={editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}
         open={isModalOpen}
@@ -378,80 +472,28 @@ const ProductsPage = () => {
         footer={null}
         width={600}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSubmit}
-          autoComplete="off"
-        >
+        <Form layout="vertical" form={form} onFinish={handleSubmit}>
           <Form.Item
             label="Tên sản phẩm"
             name="name"
             rules={[
-              { required: true, message: 'Vui lòng nhập tên sản phẩm!' },
-              { 
-                min: 3, 
-                message: 'Tên sản phẩm phải có ít nhất 3 ký tự!' 
-              },
-              { 
-                max: 30, 
-                message: 'Tên sản phẩm không được quá 30 ký tự!' 
-              },
-              {
-                whitespace: true,
-                message: 'Tên sản phẩm không được chỉ có khoảng trắng!',
-              },
+              { required: true, message: 'Vui lòng nhập tên!' },
+              { min: 3, max: 30 },
             ]}
-            hasFeedback
           >
-            <Input 
-              placeholder="Nhập tên sản phẩm" 
-              showCount
-              maxLength={30}
-            />
+            <Input showCount maxLength={30} />
           </Form.Item>
 
           <Form.Item
             label="Giá (VND)"
             name="price"
-            rules={[
-              { required: true, message: 'Vui lòng nhập giá sản phẩm!' },
-              { 
-                type: 'number', 
-                message: 'Giá phải là một số hợp lệ!' 
-              },
-              { 
-                type: 'number',
-                min: 0, 
-                message: 'Giá phải lớn hơn hoặc bằng 0!' 
-              },
-              {
-                validator: (_, value) => {
-                  if (!value && value !== 0) {
-                    return Promise.reject(new Error('Vui lòng nhập giá sản phẩm!'));
-                  }
-                  if (value < 0) {
-                    return Promise.reject(new Error('Giá không được âm!'));
-                  }
-                  return Promise.resolve();
-                },
-              },
-            ]}
-            hasFeedback
+            rules={[{ required: true }, { type: 'number', min: 0 }]}
           >
             <InputNumber
               style={{ width: '100%' }}
-              placeholder="Nhập giá sản phẩm"
-              formatter={(value) => {
-                if (!value) return '';
-                return `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-              }}
-              parser={(value) => {
-                if (!value) return '';
-                return value.replace(/\$\s?|(,*)/g, '');
-              }}
+              formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+              parser={(v) => v.replace(/(,*)/g, '')}
               min={0}
-              step={1000}
             />
           </Form.Item>
 
@@ -459,131 +501,61 @@ const ProductsPage = () => {
             label="Mô tả"
             name="description"
             rules={[
-              { required: true, message: 'Vui lòng nhập mô tả sản phẩm!' },
-              { 
-                min: 3, 
-                message: 'Mô tả phải có ít nhất 3 ký tự!' 
-              },
-              { 
-                max: 100, 
-                message: 'Mô tả không được quá 100 ký tự!' 
-              },
-              {
-                whitespace: true,
-                message: 'Mô tả không được chỉ có khoảng trắng!',
-              },
+              { required: true },
+              { min: 3, max: 100 },
             ]}
-            hasFeedback
           >
-            <TextArea
-              rows={4}
-              placeholder="Nhập mô tả sản phẩm"
-              showCount
-              maxLength={100}
-            />
+            <TextArea rows={4} maxLength={100} showCount />
           </Form.Item>
 
           <Form.Item
             label="Hình ảnh (URL)"
             name="image"
             rules={[
-              { required: true, message: 'Vui lòng nhập URL hình ảnh!' },
-              { 
-                min: 3, 
-                message: 'URL hình ảnh phải có ít nhất 3 ký tự!' 
-              },
-              { 
-                max: 100, 
-                message: 'URL hình ảnh không được quá 100 ký tự!' 
-              },
-              {
-                type: 'url',
-                message: 'Vui lòng nhập URL hợp lệ (ví dụ: https://example.com/image.jpg)!',
-              },
-              {
-                pattern: /^https?:\/\/.+/,
-                message: 'URL phải bắt đầu bằng http:// hoặc https://',
-              },
+              { required: true },
+              { type: 'url', message: 'URL không hợp lệ!' },
+              { pattern: /^https?:\/\//, message: 'Phải bắt đầu bằng http/https' },
             ]}
-            hasFeedback
-            extra="Ví dụ: https://example.com/image.jpg"
           >
-            <Input 
-              placeholder="https://example.com/image.jpg" 
-              showCount
-              maxLength={100}
-            />
+            <Input showCount maxLength={100} />
           </Form.Item>
 
           <Form.Item
             label="Danh mục"
             name="category"
             rules={[
-              { required: true, message: 'Vui lòng nhập danh mục sản phẩm!' },
-              { 
-                min: 3, 
-                message: 'Danh mục phải có ít nhất 3 ký tự!' 
-              },
-              { 
-                max: 100, 
-                message: 'Danh mục không được quá 100 ký tự!' 
-              },
-              {
-                whitespace: true,
-                message: 'Danh mục không được chỉ có khoảng trắng!',
-              },
+              { required: true },
+              { min: 3, max: 100 },
             ]}
-            hasFeedback
           >
-            <Input 
-              placeholder="Nhập danh mục sản phẩm" 
-              showCount
-              maxLength={100}
-            />
+            <Input />
           </Form.Item>
 
           <Form.Item
             label="Thương hiệu"
             name="brand"
             rules={[
-              { required: true, message: 'Vui lòng nhập thương hiệu!' },
-              { 
-                min: 3, 
-                message: 'Thương hiệu phải có ít nhất 3 ký tự!' 
-              },
-              { 
-                max: 100, 
-                message: 'Thương hiệu không được quá 100 ký tự!' 
-              },
-              {
-                whitespace: true,
-                message: 'Thương hiệu không được chỉ có khoảng trắng!',
-              },
+              { required: true },
+              { min: 3, max: 100 },
             ]}
-            hasFeedback
           >
-            <Input 
-              placeholder="Nhập thương hiệu sản phẩm" 
-              showCount
-              maxLength={100}
-            />
+            <Input />
           </Form.Item>
 
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit">
-                {editingProduct ? 'Cập nhật' : 'Tạo mới'}
-              </Button>
-              <Button
-                onClick={() => {
-                  setIsModalOpen(false);
-                  form.resetFields();
-                }}
-              >
-                Hủy
-              </Button>
-            </Space>
-          </Form.Item>
+          <Space>
+            <Button type="primary" htmlType="submit">
+              {editingProduct ? 'Cập nhật' : 'Tạo mới'}
+            </Button>
+
+            <Button
+              onClick={() => {
+                setIsModalOpen(false);
+                form.resetFields();
+              }}
+            >
+              Hủy
+            </Button>
+          </Space>
         </Form>
       </Modal>
     </div>
@@ -591,4 +563,3 @@ const ProductsPage = () => {
 };
 
 export default ProductsPage;
-

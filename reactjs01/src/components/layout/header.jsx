@@ -51,6 +51,7 @@ const Header = () => {
                       user: {
                         email: '',
                         name: '',
+                        role: '',
                       },
                     });
                     navigate('/');

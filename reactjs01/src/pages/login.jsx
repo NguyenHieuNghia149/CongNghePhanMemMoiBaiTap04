@@ -10,28 +10,39 @@ const LoginPage = () => {
   const { setAuth } = useContext(AuthContext);
 
   const onFinish = async (values) => {
-    const { email, password } = values;
+    try {
+      const { email, password } = values;
 
-    const res = await loginApi(email, password);
-    if (res && res.EC === 0) {
-      localStorage.setItem('access_token', res.access_token);
-      notification.success({
-        message: 'LOGIN USER',
-        description: 'Success',
-      });
-      setAuth({
-        isAuthenticated: true,
-        user: {
-          email: res?.user?.email ?? '',
-          name: res?.user?.name ?? '',
-        },
-      });
-      navigate('/');
-    } else {
-        console.log(res);
+      const res = await loginApi(email, password);
+      if (res && res.EC === 0) {
+        localStorage.setItem('access_token', res.access_token);
+        notification.success({
+          message: 'Đăng nhập thành công',
+          description: 'Chào mừng bạn trở lại!',
+        });
+        setAuth({
+          isAuthenticated: true,
+          user: {
+            email: res?.user?.email ?? '',
+            name: res?.user?.name ?? '',
+            role: res?.user?.role ?? '',
+          },
+        });
+        navigate('/');
+      } else {
+        // Hiển thị thông báo lỗi khi đăng nhập sai
+        notification.error({
+          message: 'Đăng nhập thất bại',
+          description: res?.EM || 'Email hoặc mật khẩu không đúng. Vui lòng thử lại!',
+          duration: 5,
+        });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
       notification.error({
-        message: 'LOGIN USER',
-        description: res?.EM ?? 'error',
+        message: 'Đăng nhập thất bại',
+        description: error?.response?.data?.EM || error?.message || 'Có lỗi xảy ra khi đăng nhập. Vui lòng thử lại!',
+        duration: 5,
       });
     }
   };

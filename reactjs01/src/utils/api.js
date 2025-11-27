@@ -37,6 +37,10 @@ const deleteProductApi = (id) => {
   return axios.delete(`/v1/api/products/${id}`);
 };
 
+const getProductFiltersApi = () => {
+  return axios.get('/v1/api/products/filters'); // hoặc route bạn đặt
+};
+
 export { 
   createUserApi, 
   loginApi, 
@@ -47,4 +51,5 @@ export {
   createProductApi,
   updateProductApi,
   deleteProductApi,
+  getProductFiltersApi,
 };

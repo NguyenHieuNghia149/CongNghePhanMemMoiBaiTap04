@@ -4,6 +4,7 @@ const {
   getProductById,
   updateProduct,
   deleteProduct,
+  getProductFilters,
 } = require('../services/productService');
 
 
@@ -35,6 +36,7 @@ const getAllProductsController = async (req, res) => {
       brand: req.query.brand,
       minPrice: req.query.minPrice ? parseFloat(req.query.minPrice) : undefined,
       maxPrice: req.query.maxPrice ? parseFloat(req.query.maxPrice) : undefined,
+      search: req.query.search,
       sortBy: req.query.sortBy || 'createdAt',
       sortOrder: req.query.sortOrder || 'desc',
       page: req.query.page ? parseInt(req.query.page) : 1,
@@ -122,11 +124,31 @@ const deleteProductController = async (req, res) => {
   }
 };
 
+const getProductFiltersController = async (req, res) => {
+  try {
+    const result = await getProductFilters();
+
+    if (result.EC === 0) {
+      return res.status(200).json(result);
+    } else {
+      return res.status(400).json(result);
+    }
+  } catch (error) {
+    console.log('Error in getProductFiltersController:', error);
+    return res.status(500).json({
+      EC: 1,
+      EM: 'Lỗi server khi lấy bộ lọc sản phẩm',
+      data: null,
+    });
+  }
+};
+
 module.exports = {
   createProductController,
   getAllProductsController,
   getProductByIdController,
   updateProductController,
   deleteProductController,
+  getProductFiltersController,
 };
 

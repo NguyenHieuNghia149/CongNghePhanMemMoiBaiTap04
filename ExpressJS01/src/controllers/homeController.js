@@ -9,9 +9,32 @@ const createUser = async (req, res) => {
 }
 
 const handleLogin = async (req, res) => {
-    const {email, password} = req.body;
-    const data = await loginService(email, password);
-    return res.status(200).json(data);
+    try {
+        const {email, password} = req.body;
+        const data = await loginService(email, password);
+        
+        // Nếu đăng nhập thành công (EC === 0)
+        if (data && data.EC === 0) {
+            return res.status(200).json(data);
+        }
+        
+        // Nếu đăng nhập thất bại (EC !== 0)
+        if (data && data.EC !== 0) {
+            return res.status(401).json(data);
+        }
+        
+        // Nếu có lỗi khác
+        return res.status(500).json({
+            EC: 1,
+            EM: 'Có lỗi xảy ra khi đăng nhập'
+        });
+    } catch (error) {
+        console.log('Error in handleLogin:', error);
+        return res.status(500).json({
+            EC: 1,
+            EM: 'Lỗi server khi đăng nhập'
+        });
+    }
 }
 
 const getUser = async (req, res) => {

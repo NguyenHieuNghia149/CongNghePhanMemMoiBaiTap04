@@ -1,5 +1,5 @@
 const Product = require('../models/product');
-
+const Fuse = require('fuse.js');
 
 const createProduct = async (productData) => {
   try {
@@ -38,38 +38,60 @@ const getAllProducts = async (options = {}) => {
       brand, 
       minPrice, 
       maxPrice,
+      search,
       sortBy = 'createdAt',
       sortOrder = 'desc',
       page = 1,
       limit = 10
     } = options;
 
-    // Xây dựng query filter
-    const filter = {};
-    if (category) filter.category = category;
-    if (brand) filter.brand = brand;
+    // Bước 1: Filter cơ bản bằng MongoDB (theo category/brand/price)
+    const mongoFilter = {};
+    if (category) mongoFilter.category = category;
+    if (brand) mongoFilter.brand = brand;
     if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.$gte = minPrice;
-      if (maxPrice) filter.price.$lte = maxPrice;
+      mongoFilter.price = {};
+      if (minPrice !== undefined && minPrice !== null) mongoFilter.price.$gte = minPrice;
+      if (maxPrice !== undefined && maxPrice !== null) mongoFilter.price.$lte = maxPrice;
     }
 
-    // Tính toán pagination
-    const skip = (page - 1) * limit;
+    // Bước 2: Lấy toàn bộ dữ liệu sau khi filter (dưới vài nghìn record vẫn ổn)
     const sort = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
-    const products = await Product.find(filter)
+    const baseProducts = await Product.find(mongoFilter)
       .sort(sort)
-      .skip(skip)
-      .limit(limit);
+      .lean(); // dùng lean() để tối ưu cho Fuse
 
-    const total = await Product.countDocuments(filter);
+    let finalProducts = baseProducts;
+
+    // Bước 3: Nếu có search -> dùng Fuse.js để fuzzy search trên name/description/brand/category
+    if (search && search.trim()) {
+      const fuseOptions = {
+        isCaseSensitive: false,
+        includeScore: false,
+        shouldSort: true,
+        threshold: 0.3, // độ "mờ": 0 = khớp chính xác, 1 = rất mờ
+        keys: ['name', 'description', 'brand', 'category'],
+      };
+
+      const fuse = new Fuse(baseProducts, fuseOptions);
+      const results = fuse.search(search.trim());
+
+      // Fuse trả về mảng dạng { item, refIndex, score? }
+      finalProducts = results.map(r => r.item);
+    }
+
+    // Bước 4: Pagination phía backend trên mảng finalProducts
+    const total = finalProducts.length;
+    const start = (page - 1) * limit;
+    const end = start + limit;
+    const pagedProducts = finalProducts.slice(start, end);
 
     return {
       EC: 0,
       EM: 'Lấy danh sách sản phẩm thành công',
-      data: products,
+      data: pagedProducts,
       pagination: {
         page,
         limit,
@@ -78,7 +100,7 @@ const getAllProducts = async (options = {}) => {
       },
     };
   } catch (error) {
-    console.log('Error getting products:', error);
+    console.log('Error getting products with Fuse.js:', error);
     return {
       EC: 1,
       EM: 'Có lỗi xảy ra khi lấy danh sách sản phẩm',
@@ -182,11 +204,42 @@ const deleteProduct = async (productId) => {
   }
 };
 
+// Lấy danh sách category & brand duy nhất để phục vụ filter
+const getProductFilters = async () => {
+  try {
+    
+    // map to simpler arrays
+    const categories = (await Product.distinct('category'))
+    .map(c => c?.trim())
+    .filter(Boolean);    
+    const brands = (await Product.distinct('brand'))
+    .map(b => b?.trim())
+    .filter(Boolean);
+
+    return {
+      EC: 0,
+      EM: 'Lấy danh sách bộ lọc sản phẩm thành công',
+      data: {
+        categories,
+        brands,
+      },
+    };
+  } catch (error) {
+    console.log('Error getting product filters:', error);
+    return {
+      EC: 1,
+      EM: 'Có lỗi xảy ra khi lấy bộ lọc sản phẩm',
+      data: null,
+    };
+  }
+};
+
 module.exports = {
   createProduct,
   getAllProducts,
   getProductById,
   updateProduct,
   deleteProduct,
+  getProductFilters,
 };
 

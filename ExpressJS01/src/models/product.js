@@ -11,6 +11,14 @@ const productSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now },
 });
 
+// Tạo text index cho fuzzy search trên các trường name, description, brand, category
+productSchema.index({ 
+    name: 'text', 
+    description: 'text', 
+    brand: 'text', 
+    category: 'text' 
+});
+
 const Product = mongoose.model('Product', productSchema);
 
 module.exports = Product;

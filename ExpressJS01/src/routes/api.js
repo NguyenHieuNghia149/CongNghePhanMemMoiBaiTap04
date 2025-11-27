@@ -8,6 +8,7 @@ const {
   getProductByIdController,
   updateProductController,
   deleteProductController,
+  getProductFiltersController,
 } = require('../controllers/productController');
 const { auth, authAdmin } = require('../middleware/auth');
 const delay = require('../middleware/delay');
@@ -53,6 +54,13 @@ routerAPI.get(
   auth,
   productReadLimiter,
   getAllProductsController
+);
+
+routerAPI.get(
+  "/products/filters",
+  auth,
+  productReadLimiter,
+  getProductFiltersController
 );
 
 routerAPI.get(

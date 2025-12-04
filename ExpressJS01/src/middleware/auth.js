@@ -3,7 +3,17 @@ const jwt = require('jsonwebtoken');
 
 const auth = (req, res, next) => {
   const white_lists = ['/', '/register', '/login', '/forgot-password'];
-  if (white_lists.find((item) => `/v1/api${item}` === req.originalUrl)) {
+
+  // Cho phép public một số route không cần đăng nhập
+  const isPublicAuthRoute = white_lists.find((item) => `/v1/api${item}` === req.originalUrl);
+
+  // Cho phép GET các API sản phẩm (xem danh sách, chi tiết, bộ lọc, stats, similar, comments)
+  const isPublicProductGet =
+    req.method === 'GET' &&
+    req.originalUrl.startsWith('/v1/api/products') &&
+    !req.originalUrl.includes('/favorites'); // favorites vẫn cần login
+
+  if (isPublicAuthRoute || isPublicProductGet) {
     next();
   } else {
     if (req?.headers?.authorization?.split(' ')?.[1]) {

@@ -7,6 +7,8 @@ const productSchema = new mongoose.Schema({
     image: String,
     category: String,
     brand: String,
+    // Thống kê cơ bản cho trang chi tiết (chỉ giữ lượt xem, còn mua & comment dùng collection riêng)
+    viewCount: { type: Number, default: 0 },       // số lượt xem
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
 });

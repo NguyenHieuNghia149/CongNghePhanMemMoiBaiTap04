@@ -5,6 +5,9 @@ const {
   updateProduct,
   deleteProduct,
   getProductFilters,
+  incrementProductView,
+  getProductStats,
+  getSimilarProducts,
 } = require('../services/productService');
 
 
@@ -143,6 +146,58 @@ const getProductFiltersController = async (req, res) => {
   }
 };
 
+// Tăng lượt xem sản phẩm
+const incrementProductViewController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await incrementProductView(id);
+
+    return res.status(result.EC === 0 ? 200 : 400).json(result);
+  } catch (error) {
+    console.log('Error in incrementProductViewController:', error);
+    return res.status(500).json({
+      EC: 1,
+      EM: 'Lỗi server khi tăng lượt xem sản phẩm',
+      data: null,
+    });
+  }
+};
+
+// Lấy thống kê sản phẩm
+const getProductStatsController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await getProductStats(id);
+
+    return res.status(result.EC === 0 ? 200 : 404).json(result);
+  } catch (error) {
+    console.log('Error in getProductStatsController:', error);
+    return res.status(500).json({
+      EC: 1,
+      EM: 'Lỗi server khi lấy thống kê sản phẩm',
+      data: null,
+    });
+  }
+};
+
+// Lấy sản phẩm tương tự
+const getSimilarProductsController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 6;
+    const result = await getSimilarProducts(id, limit);
+
+    return res.status(result.EC === 0 ? 200 : 400).json(result);
+  } catch (error) {
+    console.log('Error in getSimilarProductsController:', error);
+    return res.status(500).json({
+      EC: 1,
+      EM: 'Lỗi server khi lấy sản phẩm tương tự',
+      data: null,
+    });
+  }
+};
+
 module.exports = {
   createProductController,
   getAllProductsController,
@@ -150,5 +205,8 @@ module.exports = {
   updateProductController,
   deleteProductController,
   getProductFiltersController,
+  incrementProductViewController,
+  getProductStatsController,
+  getSimilarProductsController,
 };
 

@@ -32,14 +32,17 @@ import {
   updateProductApi,
   deleteProductApi,
   getProductFiltersApi,
+  addItemToCartGql,
 } from '../utils/api';
 import { AuthContext } from '../components/context/auth.context';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 const ProductsPage = () => {
   const { auth } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -63,6 +66,9 @@ const ProductsPage = () => {
   const [form] = Form.useForm();
   const observerTarget = useRef(null);
   const debounceTimer = useRef(null);
+
+
+  const [api, contextHolder] = notification.useNotification();
 
   const limit = 10;
 
@@ -226,6 +232,40 @@ const ProductsPage = () => {
   };
 
   // ------------------------------------------------
+  // Thêm sản phẩm vào giỏ hàng (GraphQL)
+  // ------------------------------------------------
+  const handleAddToCart = async (product) => {
+    try {
+      const res = await addItemToCartGql(product._id, 1);
+      if (res?.data?.addItemToCart?.EC === 0) {
+        api.success({
+          message: 'Thêm thành công!',
+          description: (
+            <span>
+                Bạn đã thêm <b>{product.name}</b> vào giỏ hàng.
+            </span>
+          ),
+          placement: 'topRight', // Vị trí hiển thị: Góc trên bên phải
+          duration: 3, // Tự tắt sau 3 giây
+          icon: <ShoppingOutlined style={{ color: '#52c41a' }} />, // Thêm icon cho đẹp
+        });
+      } else {
+        api.error({
+          message: 'Thất bại',
+          description: res?.data?.addItemToCart?.EM || 'Không thể thêm vào giỏ hàng',
+          placement: 'topRight',
+        });
+      }
+    } catch (error) {
+      console.error('Error add to cart:', error);
+      notification.error({
+        message: 'Lỗi',
+        description: 'Có lỗi xảy ra khi thêm vào giỏ hàng',
+      });
+    }
+  };
+
+  // ------------------------------------------------
   // Submit create/update
   // ------------------------------------------------
   const handleSubmit = async (values) => {
@@ -244,7 +284,7 @@ const ProductsPage = () => {
         : await createProductApi(data);
 
       if (res?.EC === 0) {
-        notification.success({
+        api.success({
           message: 'Thành công',
           description: editingProduct ? 'Cập nhật thành công' : 'Tạo sản phẩm thành công',
         });
@@ -281,11 +321,18 @@ const ProductsPage = () => {
   // RENDER UI
   // ------------------------------------------------
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <Title level={2}>
-          <ShoppingOutlined /> Danh sách Sản phẩm
-        </Title>
+    <div className="px-4 py-6 md:py-8 max-w-6xl mx-auto">
+      {contextHolder}
+      {/* HEADER */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4 md:mb-6">
+        <div>
+          <Title level={2} style={{ marginBottom: 4 }}>
+            <ShoppingOutlined /> Danh sách sản phẩm
+          </Title>
+          <Text type="secondary">
+            Tìm kiếm, lọc theo danh mục, thương hiệu và khoảng giá. Fuzzy search được bật cho tên, mô tả, thương hiệu.
+          </Text>
+        </div>
 
         {isAdmin && (
           <Button type="primary" icon={<PlusOutlined />} size="large" onClick={handleCreate}>
@@ -294,7 +341,7 @@ const ProductsPage = () => {
         )}
       </div>
 
-      <Row gutter={16}>
+      <Row gutter={[16, 16]}>
         {/* FILTER SIDEBAR */}
         <Col xs={24} md={7} lg={6}>
           <Card size="small" title="Bộ lọc" bodyStyle={{ padding: 16 }}>
@@ -385,6 +432,15 @@ const ProductsPage = () => {
                   <Col xs={24} sm={12} md={12} lg={8} key={product._id}>
                     <Card
                       hoverable
+                      onClick={() => navigate(`/products/${product._id}`)}
+                      style={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        borderRadius: 16,
+                        overflow: 'hidden',
+                      }}
+                      bodyStyle={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 16 }}
                       cover={
                         product.image ? (
                           <Image
@@ -413,37 +469,58 @@ const ProductsPage = () => {
                           ? [
                               <EditOutlined key="edit" onClick={() => handleEdit(product)} />,
                               <Popconfirm
+                                key="delete"
                                 title="Xóa sản phẩm"
                                 description="Bạn có chắc muốn xóa?"
                                 onConfirm={() => handleDelete(product._id)}
                                 okText="Xóa"
                                 cancelText="Hủy"
                               >
-                                <DeleteOutlined key="delete" style={{ color: '#ff4d4f' }} />
+                                <DeleteOutlined style={{ color: '#ff4d4f' }} />
                               </Popconfirm>,
                             ]
                           : []
                       }
                     >
-                      <Card.Meta
-                        title={product.name}
-                        description={
-                          <Space direction="vertical" style={{ width: '100%' }}>
-                            <Paragraph ellipsis={{ rows: 2 }}>
-                              {product.description}
-                            </Paragraph>
-
-                            <Text strong style={{ fontSize: 18, color: '#ff4d4f' }}>
-                              {new Intl.NumberFormat('vi-VN', {
-                                style: 'currency',
-                                currency: 'VND',
-                              }).format(product.price)}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, height: '100%' }}>
+                        <Card.Meta
+                          title={
+                            <Text strong ellipsis={{ tooltip: product.name }}>
+                              {product.name}
                             </Text>
+                          }
+                          description={
+                            <Space direction="vertical" style={{ width: '100%' }} size={4}>
+                              <Paragraph ellipsis={{ rows: 2 }} type="secondary" style={{ marginBottom: 0 }}>
+                                {product.description}
+                              </Paragraph>
 
-                            <Tag color="purple">{product.brand}</Tag>
-                          </Space>
-                        }
-                      />
+                              <Text strong style={{ fontSize: 18, color: '#ff4d4f' }}>
+                                {new Intl.NumberFormat('vi-VN', {
+                                  style: 'currency',
+                                  currency: 'VND',
+                                }).format(product.price)}
+                              </Text>
+
+                              <Tag color="purple" style={{ alignSelf: 'flex-start' }}>
+                                {product.brand || 'N/A'}
+                              </Tag>
+                            </Space>
+                          }
+                        />
+
+                        {/* Nút thêm vào giỏ luôn nằm trong card, không lệch ra ngoài */}
+                        <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+                          <Button
+                            type="primary"
+                            block
+                            icon={<ShoppingOutlined />}
+                            onClick={() => handleAddToCart(product)}
+                          >
+                            Thêm vào giỏ hàng
+                          </Button>
+                        </div>
+                      </div>
                     </Card>
                   </Col>
                 ))}

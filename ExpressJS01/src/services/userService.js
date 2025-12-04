@@ -77,7 +77,17 @@ const resetPasswordService = async (email, newPassword) => {
   }
 }
 
+const getUserByEmail = async (email) => {
+  try {
+    const user = await User.findOne({ email });
+    return user;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+}
+
 module.exports = {
-  createUserService, loginService, getUserService, resetPasswordService
+  createUserService, loginService, getUserService, resetPasswordService, getUserByEmail
 }
 

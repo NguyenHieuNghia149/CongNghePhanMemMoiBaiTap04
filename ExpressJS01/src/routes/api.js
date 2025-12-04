@@ -9,7 +9,21 @@ const {
   updateProductController,
   deleteProductController,
   getProductFiltersController,
+  incrementProductViewController,
+  getProductStatsController,
+  getSimilarProductsController,
 } = require('../controllers/productController');
+const {
+  toggleFavoriteController,
+  getFavoriteProductsController,
+} = require('../controllers/favoriteController');
+const {
+  createCommentController,
+  getCommentsByProductController,
+} = require('../controllers/commentController');
+const {
+  createOrderController,
+} = require('../controllers/orderController');
 const { auth, authAdmin } = require('../middleware/auth');
 const delay = require('../middleware/delay');
 const { validate } = require('../middleware/validate');
@@ -61,6 +75,66 @@ routerAPI.get(
   auth,
   productReadLimiter,
   getProductFiltersController
+);
+
+// Thống kê & lượt xem sản phẩm
+routerAPI.post(
+  "/products/:id/view",
+  auth,
+  productReadLimiter,
+  incrementProductViewController
+);
+
+routerAPI.get(
+  "/products/:id/stats",
+  auth,
+  productReadLimiter,
+  getProductStatsController
+);
+
+// Sản phẩm tương tự
+routerAPI.get(
+  "/products/:id/similar",
+  auth,
+  productReadLimiter,
+  getSimilarProductsController
+);
+
+// Comment cho sản phẩm
+routerAPI.post(
+  "/products/:id/comments",
+  auth,
+  productReadLimiter,
+  createCommentController
+);
+
+routerAPI.get(
+  "/products/:id/comments",
+  auth,
+  productReadLimiter,
+  getCommentsByProductController
+);
+
+// Order checkout đơn giản
+routerAPI.post(
+  "/orders",
+  auth,
+  createOrderController
+);
+
+// Yêu thích sản phẩm
+routerAPI.post(
+  "/products/:id/favorite",
+  auth,
+  productReadLimiter,
+  toggleFavoriteController
+);
+
+routerAPI.get(
+  "/products/favorites",
+  auth,
+  productReadLimiter,
+  getFavoriteProductsController
 );
 
 routerAPI.get(

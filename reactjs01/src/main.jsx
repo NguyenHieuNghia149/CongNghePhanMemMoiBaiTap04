@@ -13,8 +13,8 @@ import RegisterPage from './pages/register.jsx';
 import UserPage from './pages/user.jsx';
 import ForgotPasswordPage from './pages/forgot.jsx';
 import ProductsPage from './pages/products.jsx';
+import ProductDetailPage from './pages/product_detail.jsx';
 import Cart from './pages/shopping_cart.jsx';
-import './index.css'  // 👈 Import CSS này
 
 const router = createBrowserRouter([
   {
@@ -33,6 +33,14 @@ const router = createBrowserRouter([
         path: 'products',
         element: <ProductsPage />,
       },
+      {
+        path: 'products/:id',
+        element: <ProductDetailPage />,
+      },
+      {
+        path: 'cart',
+        element: <Cart />,
+      },
     ],
   },
   {
@@ -47,10 +55,6 @@ const router = createBrowserRouter([
     path: '/forgot-password',
     element: <ForgotPasswordPage />,
   },
-  {
-    path:'cart',
-    element: <Cart />,
-  }
 ]);
 
 ReactDOM.createRoot(document.getElementById('root')).render(

@@ -47,7 +47,9 @@ const getAllProducts = async (options = {}) => {
       limit = 10
     } = options;
 
-    // Bước 1: Filter cơ bản bằng MongoDB (theo category/brand/price)
+    // ============================================
+    // BƯỚC 1: TẠO MONGODB FILTER
+    // ============================================
     const mongoFilter = {};
     if (category) mongoFilter.category = category;
     if (brand) mongoFilter.brand = brand;
@@ -57,18 +59,34 @@ const getAllProducts = async (options = {}) => {
       if (maxPrice !== undefined && maxPrice !== null) mongoFilter.price.$lte = maxPrice;
     }
 
-    // Bước 2: Lấy toàn bộ dữ liệu sau khi filter (dưới vài nghìn record vẫn ổn)
+    // ============================================
+    // BƯỚC 2: TẠO SORT OBJECT
+    // ============================================
     const sort = {};
     sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
 
-    const baseProducts = await Product.find(mongoFilter)
-      .sort(sort)
-      .lean(); // dùng lean() để tối ưu cho Fuse
+    // ============================================
+    // BƯỚC 3: XỬ LÝ SEARCH VÀ PAGINATION
+    // ============================================
+    let pagedProducts = [];
+    let total = 0;
 
-    let finalProducts = baseProducts;
-
-    // Bước 3: Nếu có search -> dùng Fuse.js để fuzzy search trên name/description/brand/category
     if (search && search.trim()) {
+      // CÓ SEARCH → Dùng Fuse.js để fuzzy search
+      // Lưu ý: Fuse.js cần load hết data để search, chỉ phù hợp khi dataset < 5000
+      // Với dataset lớn hơn, nên dùng MongoDB Text Search ($text)
+      
+      // Load toàn bộ sản phẩm sau khi filter để Fuse.js search
+      const baseProducts = await Product.find(mongoFilter)
+        .sort(sort)
+        .lean();
+
+      // Kiểm tra số lượng để cảnh báo nếu dataset quá lớn
+      if (baseProducts.length > 5000) {
+        console.warn(`Warning: Dataset lớn (${baseProducts.length} records). Nên dùng MongoDB Text Search thay vì Fuse.js để tối ưu hiệu năng.`);
+      }
+
+      // Fuzzy search với Fuse.js
       const fuseOptions = {
         isCaseSensitive: false,
         includeScore: false,
@@ -79,17 +97,31 @@ const getAllProducts = async (options = {}) => {
 
       const fuse = new Fuse(baseProducts, fuseOptions);
       const results = fuse.search(search.trim());
+      const finalProducts = results.map(r => r.item);
 
-      // Fuse trả về mảng dạng { item, refIndex, score? }
-      finalProducts = results.map(r => r.item);
+      // Pagination trên kết quả sau khi search
+      total = finalProducts.length;
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      pagedProducts = finalProducts.slice(start, end);
+    } else {
+      // KHÔNG CÓ SEARCH → Paginate trực tiếp trong MongoDB (TỐI ƯU)
+      const skip = (page - 1) * limit;
+
+      // Query song song: lấy data và count tổng số
+      [pagedProducts, total] = await Promise.all([
+        Product.find(mongoFilter)
+          .sort(sort)
+          .skip(skip)        // Bỏ qua N items đầu
+          .limit(limit)      // Chỉ lấy limit items
+          .lean(),
+        Product.countDocuments(mongoFilter)  // Đếm tổng số để tính totalPages
+      ]);
     }
 
-    // Bước 4: Pagination phía backend trên mảng finalProducts
-    const total = finalProducts.length;
-    const start = (page - 1) * limit;
-    const end = start + limit;
-    const pagedProducts = finalProducts.slice(start, end);
-
+    // ============================================
+    // BƯỚC 4: TRẢ VỀ KẾT QUẢ
+    // ============================================
     return {
       EC: 0,
       EM: 'Lấy danh sách sản phẩm thành công',
@@ -102,7 +134,7 @@ const getAllProducts = async (options = {}) => {
       },
     };
   } catch (error) {
-    console.log('Error getting products with Fuse.js:', error);
+    console.log('Error getting products:', error);
     return {
       EC: 1,
       EM: 'Có lỗi xảy ra khi lấy danh sách sản phẩm',

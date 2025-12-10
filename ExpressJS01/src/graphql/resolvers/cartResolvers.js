@@ -9,15 +9,12 @@ const {
 } = require('../../services/cartService');
 const User = require('../../models/user');
 
-/**
- * Helper function để lấy userId từ context (từ JWT token)
- */
+
 const getUserIdFromContext = (context) => {
   if (!context || !context.user || !context.user.email) {
     throw new Error('Bạn chưa đăng nhập');
   }
   // Tìm user theo email để lấy userId
-  // Trong thực tế, có thể lưu userId trong JWT token
   return context.user.email;
 };
 

@@ -270,13 +270,80 @@ const ProductsPage = () => {
   // ------------------------------------------------
   const handleSubmit = async (values) => {
     try {
+      // Trim và validate dữ liệu trước khi gửi
+      const trimmedName = values.name?.trim();
+      const trimmedDescription = values.description?.trim();
+      const trimmedImage = values.image?.trim();
+      const trimmedCategory = values.category?.trim();
+      const trimmedBrand = values.brand?.trim();
+
+      // Kiểm tra các trường bắt buộc sau khi trim
+      if (!trimmedName || trimmedName.length < 3) {
+        api.error({
+          message: 'Lỗi validation',
+          description: 'Tên sản phẩm phải có ít nhất 3 ký tự!',
+        });
+        return;
+      }
+
+      if (!trimmedDescription || trimmedDescription.length < 3) {
+        api.error({
+          message: 'Lỗi validation',
+          description: 'Mô tả phải có ít nhất 3 ký tự!',
+        });
+        return;
+      }
+
+      if (!trimmedImage || trimmedImage.length < 3) {
+        api.error({
+          message: 'Lỗi validation',
+          description: 'URL hình ảnh phải có ít nhất 3 ký tự!',
+        });
+        return;
+      }
+
+      if (!trimmedCategory || trimmedCategory.length < 3) {
+        api.error({
+          message: 'Lỗi validation',
+          description: 'Danh mục phải có ít nhất 3 ký tự!',
+        });
+        return;
+      }
+
+      if (!trimmedBrand || trimmedBrand.length < 3) {
+        api.error({
+          message: 'Lỗi validation',
+          description: 'Thương hiệu phải có ít nhất 3 ký tự!',
+        });
+        return;
+      }
+
+      // Validate price
+      const price = Number(values.price);
+      if (isNaN(price) || price < 0) {
+        api.error({
+          message: 'Lỗi validation',
+          description: 'Giá sản phẩm phải là số và lớn hơn hoặc bằng 0!',
+        });
+        return;
+      }
+
+      // Validate URL format
+      if (!/^https?:\/\//.test(trimmedImage)) {
+        api.error({
+          message: 'Lỗi validation',
+          description: 'URL hình ảnh phải bắt đầu bằng http:// hoặc https://!',
+        });
+        return;
+      }
+
       const data = {
-        name: values.name.trim(),
-        price: Number(values.price),
-        description: values.description.trim(),
-        image: values.image.trim(),
-        category: values.category.trim(),
-        brand: values.brand.trim(),
+        name: trimmedName,
+        price: price,
+        description: trimmedDescription,
+        image: trimmedImage,
+        category: trimmedCategory,
+        brand: trimmedBrand,
       };
 
       const res = editingProduct
@@ -286,14 +353,23 @@ const ProductsPage = () => {
       if (res?.EC === 0) {
         api.success({
           message: 'Thành công',
-          description: editingProduct ? 'Cập nhật thành công' : 'Tạo sản phẩm thành công',
+          description: editingProduct ? 'Cập nhật sản phẩm thành công!' : 'Tạo sản phẩm thành công!',
         });
         setIsModalOpen(false);
+        setEditingProduct(null);
         form.resetFields();
         fetchProducts(1, true);
+      } else {
+        api.error({
+          message: 'Lỗi',
+          description: res?.EM || 'Có lỗi khi lưu sản phẩm',
+        });
       }
-    } catch {
-      notification.error({ message: 'Lỗi', description: 'Có lỗi khi lưu sản phẩm' });
+    } catch (error) {
+      api.error({
+        message: 'Lỗi',
+        description: error?.message || 'Có lỗi khi lưu sản phẩm',
+      });
     }
   };
 
@@ -549,74 +625,232 @@ const ProductsPage = () => {
         footer={null}
         width={600}
       >
-        <Form layout="vertical" form={form} onFinish={handleSubmit}>
+        <Form 
+          layout="vertical" 
+          form={form} 
+          onFinish={handleSubmit}
+          validateTrigger={['onBlur', 'onChange']}
+          validateMessages={{
+            required: 'Trường này không được để trống!',
+            types: {
+              number: 'Giá trị phải là số!',
+              url: 'URL không hợp lệ!',
+            },
+            string: {
+              min: 'Phải có ít nhất ${min} ký tự!',
+              max: 'Không được vượt quá ${max} ký tự!',
+            },
+            number: {
+              min: 'Giá trị phải lớn hơn hoặc bằng ${min}!',
+            },
+          }}
+        >
           <Form.Item
             label="Tên sản phẩm"
             name="name"
+            validateTrigger={['onBlur', 'onChange']}
+            validateFirst
             rules={[
-              { required: true, message: 'Vui lòng nhập tên!' },
-              { min: 3, max: 30 },
+              { required: true, message: 'Vui lòng nhập tên sản phẩm!' },
+              { min: 3, message: 'Tên sản phẩm phải có ít nhất 3 ký tự!' },
+              { max: 30, message: 'Tên sản phẩm không được vượt quá 30 ký tự!' },
+              {
+                validator: (_, value) => {
+                  if (value && value.trim().length === 0) {
+                    return Promise.reject(new Error('Tên sản phẩm không được chỉ có khoảng trắng!'));
+                  }
+                  return Promise.resolve();
+                },
+              },
             ]}
           >
-            <Input showCount maxLength={30} />
+            <Input 
+              showCount 
+              maxLength={30} 
+              placeholder="Nhập tên sản phẩm"
+              onBlur={(e) => {
+                const value = e.target.value?.trim();
+                if (value === '') {
+                  form.setFields([{
+                    name: 'name',
+                    errors: ['Vui lòng nhập tên sản phẩm!'],
+                  }]);
+                }
+              }}
+            />
           </Form.Item>
 
           <Form.Item
             label="Giá (VND)"
             name="price"
-            rules={[{ required: true }, { type: 'number', min: 0 }]}
+            validateTrigger={['onBlur', 'onChange']}
+            validateFirst
+            rules={[
+              { required: true, message: 'Vui lòng nhập giá sản phẩm!' },
+              { type: 'number', message: 'Giá phải là số!' },
+              { type: 'number', min: 0, message: 'Giá phải lớn hơn hoặc bằng 0!' },
+            ]}
           >
             <InputNumber
               style={{ width: '100%' }}
               formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
               parser={(v) => v.replace(/(,*)/g, '')}
               min={0}
+              placeholder="Nhập giá sản phẩm"
+              onBlur={() => {
+                const value = form.getFieldValue('price');
+                if (value === null || value === undefined || value === '') {
+                  form.setFields([{
+                    name: 'price',
+                    errors: ['Vui lòng nhập giá sản phẩm!'],
+                  }]);
+                }
+              }}
             />
           </Form.Item>
 
           <Form.Item
             label="Mô tả"
             name="description"
+            validateTrigger={['onBlur', 'onChange']}
+            validateFirst
             rules={[
-              { required: true },
-              { min: 3, max: 100 },
+              { required: true, message: 'Vui lòng nhập mô tả sản phẩm!' },
+              { min: 3, message: 'Mô tả phải có ít nhất 3 ký tự!' },
+              { max: 100, message: 'Mô tả không được vượt quá 100 ký tự!' },
+              {
+                validator: (_, value) => {
+                  if (value && value.trim().length === 0) {
+                    return Promise.reject(new Error('Mô tả không được chỉ có khoảng trắng!'));
+                  }
+                  return Promise.resolve();
+                },
+              },
             ]}
           >
-            <TextArea rows={4} maxLength={100} showCount />
+            <TextArea 
+              rows={4} 
+              maxLength={100} 
+              showCount 
+              placeholder="Nhập mô tả sản phẩm"
+              onBlur={(e) => {
+                const value = e.target.value?.trim();
+                if (value === '') {
+                  form.setFields([{
+                    name: 'description',
+                    errors: ['Vui lòng nhập mô tả sản phẩm!'],
+                  }]);
+                }
+              }}
+            />
           </Form.Item>
 
           <Form.Item
             label="Hình ảnh (URL)"
             name="image"
+            validateTrigger={['onBlur', 'onChange']}
+            validateFirst
             rules={[
-              { required: true },
+              { required: true, message: 'Vui lòng nhập URL hình ảnh!' },
               { type: 'url', message: 'URL không hợp lệ!' },
-              { pattern: /^https?:\/\//, message: 'Phải bắt đầu bằng http/https' },
+              { pattern: /^https?:\/\//, message: 'URL phải bắt đầu bằng http:// hoặc https://' },
+              { min: 3, message: 'URL phải có ít nhất 3 ký tự!' },
+              { max: 100, message: 'URL không được vượt quá 100 ký tự!' },
+              {
+                validator: (_, value) => {
+                  if (value && value.trim().length === 0) {
+                    return Promise.reject(new Error('URL không được chỉ có khoảng trắng!'));
+                  }
+                  return Promise.resolve();
+                },
+              },
             ]}
           >
-            <Input showCount maxLength={100} />
+            <Input 
+              showCount 
+              maxLength={100} 
+              placeholder="https://example.com/image.jpg"
+              onBlur={(e) => {
+                const value = e.target.value?.trim();
+                if (value === '') {
+                  form.setFields([{
+                    name: 'image',
+                    errors: ['Vui lòng nhập URL hình ảnh!'],
+                  }]);
+                } else if (value && !/^https?:\/\//.test(value)) {
+                  form.setFields([{
+                    name: 'image',
+                    errors: ['URL phải bắt đầu bằng http:// hoặc https://'],
+                  }]);
+                }
+              }}
+            />
           </Form.Item>
 
           <Form.Item
             label="Danh mục"
             name="category"
+            validateTrigger={['onBlur', 'onChange']}
+            validateFirst
             rules={[
-              { required: true },
-              { min: 3, max: 100 },
+              { required: true, message: 'Vui lòng nhập danh mục!' },
+              { min: 3, message: 'Danh mục phải có ít nhất 3 ký tự!' },
+              { max: 100, message: 'Danh mục không được vượt quá 100 ký tự!' },
+              {
+                validator: (_, value) => {
+                  if (value && value.trim().length === 0) {
+                    return Promise.reject(new Error('Danh mục không được chỉ có khoảng trắng!'));
+                  }
+                  return Promise.resolve();
+                },
+              },
             ]}
           >
-            <Input />
+            <Input 
+              placeholder="Ví dụ: phone, laptop, tablet"
+              onBlur={(e) => {
+                const value = e.target.value?.trim();
+                if (value === '') {
+                  form.setFields([{
+                    name: 'category',
+                    errors: ['Vui lòng nhập danh mục!'],
+                  }]);
+                }
+              }}
+            />
           </Form.Item>
 
           <Form.Item
             label="Thương hiệu"
             name="brand"
+            validateTrigger={['onBlur', 'onChange']}
+            validateFirst
             rules={[
-              { required: true },
-              { min: 3, max: 100 },
+              { required: true, message: 'Vui lòng nhập thương hiệu!' },
+              { min: 3, message: 'Thương hiệu phải có ít nhất 3 ký tự!' },
+              { max: 100, message: 'Thương hiệu không được vượt quá 100 ký tự!' },
+              {
+                validator: (_, value) => {
+                  if (value && value.trim().length === 0) {
+                    return Promise.reject(new Error('Thương hiệu không được chỉ có khoảng trắng!'));
+                  }
+                  return Promise.resolve();
+                },
+              },
             ]}
           >
-            <Input />
+            <Input 
+              placeholder="Ví dụ: Apple, Samsung, Dell"
+              onBlur={(e) => {
+                const value = e.target.value?.trim();
+                if (value === '') {
+                  form.setFields([{
+                    name: 'brand',
+                    errors: ['Vui lòng nhập thương hiệu!'],
+                  }]);
+                }
+              }}
+            />
           </Form.Item>
 
           <Space>

@@ -1,4 +1,5 @@
 const Order = require('../models/order');
+const Product = require('../models/product');
 const mongoose = require('mongoose');
 
 // Tạo đơn hàng đơn giản từ danh sách items [{ productId, quantity }]
@@ -10,6 +11,32 @@ const createOrder = async (userId, items) => {
         EM: 'Danh sách sản phẩm không hợp lệ',
         data: null,
       };
+    }
+
+    // Kiểm tra tồn kho
+    for (const item of items) {
+      const product = await Product.findById(item.productId);
+      if (!product) {
+        return {
+          EC: 1,
+          EM: `Sản phẩm với ID ${item.productId} không tồn tại`,
+          data: null,
+        };
+      }
+      if (product.stock < (item.quantity || 1)) {
+        return {
+          EC: 1,
+          EM: `Sản phẩm "${product.name}" không đủ hàng trong kho (còn lại: ${product.stock})`,
+          data: null,
+        };
+      }
+    }
+
+    // Trừ tồn kho
+    for (const item of items) {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: -(item.quantity || 1) },
+      });
     }
 
     const order = await Order.create({

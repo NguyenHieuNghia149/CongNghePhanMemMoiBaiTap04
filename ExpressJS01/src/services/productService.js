@@ -5,7 +5,7 @@ const { countCommentsByProductId } = require('./commentService');
 
 const createProduct = async (productData) => {
   try {
-    const { name, price, description, image, category, brand } = productData;
+const { name, price, description, image, category, brand, stock } = productData;
     
     const product = new Product({
       name,
@@ -14,6 +14,7 @@ const createProduct = async (productData) => {
       image,
       category,
       brand,
+      stock,
     });
 
     const result = await product.save();
@@ -173,7 +174,7 @@ const getProductById = async (productId) => {
 
 const updateProduct = async (productId, updateData) => {
   try {
-    const { name, price, description, image, category, brand } = updateData;
+    const { name, price, description, image, category, brand, stock } = updateData;
     
     const product = await Product.findById(productId);
     
@@ -192,6 +193,7 @@ const updateProduct = async (productId, updateData) => {
     if (image) product.image = image;
     if (category) product.category = category;
     if (brand) product.brand = brand;
+    if (stock !== undefined) product.stock = stock;
     product.updatedAt = new Date();
 
     const result = await product.save();

@@ -399,7 +399,7 @@ const ProductsPage = () => {
   return (
     <div className="px-4 py-6 md:py-8 max-w-6xl mx-auto">
       {contextHolder}
-      {/* HEADER */}
+      {/* HEADER */}                                      
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4 md:mb-6">
         <div>
           <Title level={2} style={{ marginBottom: 4 }}>

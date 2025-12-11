@@ -1,0 +1,64 @@
+[{
+  "_id": {
+    "$oid": "6915859747a9b275d99d32db"
+  },
+  "name": "HieuNghia",
+  "email": "hieunghia484@gmail.com",
+  "password": "$2b$10$uDdaFoFok.3tw99qrvtBOu/DAHymCr5HEeV/QJG9ooCmPZHFQsx4q",
+  "role": "User",
+  "createdAt": {
+    "$date": "2025-11-13T07:15:35.120Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-13T08:42:05.495Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "6915980634a2ea4cdfefc235"
+  },
+  "name": "Nghia Nguyen Hieu",
+  "email": "22110189@student.hcmute.edu.vn",
+  "password": "$2b$10$I8EJF6zQ4PsBUqFpsibGGOuXJaywEEwst7HEszH1JnjynDgu6e//y",
+  "role": "User",
+  "createdAt": {
+    "$date": "2025-11-13T08:34:14.474Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-19T02:32:58.034Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "691d23c3bbc5ed82ad138f80"
+  },
+  "name": "Nguyen Hieu Nghia",
+  "email": "22110189@gmail.com",
+  "password": "$2b$10$Ugwbiy5RGJtgOUA6sPOfOO0oqf9IxAvzKPu5YstmKP.s0H9Md2noS",
+  "role": "admin",
+  "createdAt": {
+    "$date": "2025-11-19T01:56:19.671Z"
+  },
+  "updatedAt": {
+    "$date": "2025-11-19T01:56:19.671Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69312d799c9651f204eefc77"
+  },
+  "name": "123456789",
+  "email": "hieunghia1409@gmail.com",
+  "password": "$2b$10$/84vwMT44BKzPjdKUi/uH.eSTd6xfnxAykY/niuUNF/LksZlxVyja",
+  "role": "User",
+  "createdAt": {
+    "$date": "2025-12-04T06:43:05.386Z"
+  },
+  "updatedAt": {
+    "$date": "2025-12-04T06:43:05.386Z"
+  },
+  "__v": 0
+}]

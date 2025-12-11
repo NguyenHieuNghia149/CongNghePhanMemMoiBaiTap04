@@ -1,0 +1,80 @@
+[{
+  "_id": {
+    "$oid": "693142261975403b8b895b53"
+  },
+  "userId": {
+    "$oid": "69312d799c9651f204eefc77"
+  },
+  "productId": {
+    "$oid": "6926694128c2ab9a03c8f183"
+  },
+  "content": "his",
+  "rating": 5,
+  "createdAt": {
+    "$date": "2025-12-04T08:11:18.713Z"
+  },
+  "updatedAt": {
+    "$date": "2025-12-04T08:11:18.713Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "693142401975403b8b895b56"
+  },
+  "userId": {
+    "$oid": "69312d799c9651f204eefc77"
+  },
+  "productId": {
+    "$oid": "6926694128c2ab9a03c8f183"
+  },
+  "content": "d",
+  "rating": 1,
+  "createdAt": {
+    "$date": "2025-12-04T08:11:44.944Z"
+  },
+  "updatedAt": {
+    "$date": "2025-12-04T08:11:44.944Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "693144551975403b8b895bf1"
+  },
+  "userId": {
+    "$oid": "69312d799c9651f204eefc77"
+  },
+  "productId": {
+    "$oid": "6926694128c2ab9a03c8f17c"
+  },
+  "content": "san pham  tuyet voi",
+  "rating": 5,
+  "createdAt": {
+    "$date": "2025-12-04T08:20:37.856Z"
+  },
+  "updatedAt": {
+    "$date": "2025-12-04T08:20:37.856Z"
+  },
+  "__v": 0
+},
+{
+  "_id": {
+    "$oid": "69385a3af9a428d5a657b92a"
+  },
+  "userId": {
+    "$oid": "69312d799c9651f204eefc77"
+  },
+  "productId": {
+    "$oid": "6926694128c2ab9a03c8f181"
+  },
+  "content": "hay",
+  "rating": 5,
+  "createdAt": {
+    "$date": "2025-12-09T17:19:55.008Z"
+  },
+  "updatedAt": {
+    "$date": "2025-12-09T17:19:55.008Z"
+  },
+  "__v": 0
+}]
